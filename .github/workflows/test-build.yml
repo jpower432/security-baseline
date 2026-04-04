@@ -18,7 +18,7 @@ jobs:
             persist-credentials: false
 
       - name: Build content from yaml
-        run:  cd cmd && go run . compile --output ../docs/versions/devel.md
+        run:  cd cmd && go run . compile
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13

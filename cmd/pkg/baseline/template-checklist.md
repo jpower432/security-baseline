@@ -1,4 +1,4 @@
-# OSPS Baseline checklist, version: devel
+# OSPS Baseline checklist, version: {{ if version }}{{ version }}{{ else }}devel{{ end }}
 
 ## Level 1
 {{ range .Catalog.Controls }}

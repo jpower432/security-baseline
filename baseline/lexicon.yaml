@@ -224,6 +224,7 @@
   definition: |
     A Linux Foundation project that oversee two ISO/IEC standards to better understand and manage software supply chains. 
   synonyms: 
+    - "ISO-18974" 
     - "18974" 
     - ISO/IEC 5230
     - ISO/IEC 18974
@@ -308,7 +309,7 @@
     release time, this may include provenance
     information, licensing details, and other
     metadata.
-- term: Proactive Software Supply Chain Risk Management Framework
+- term: OWASP Software Assurance Maturity Model
   definition: |
     A maturity model for software assurance that provides an 
     effective and measurable way for all types of organizations 

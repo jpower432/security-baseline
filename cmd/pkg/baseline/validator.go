@@ -19,7 +19,6 @@ func NewValidator() *Validator {
 
 type Validator struct{}
 
-// Check verifies the data parsed for consistency and completeness
 func (v *Validator) Check(b *types.Baseline) error {
 	var entryIDs []string
 	assessmentIDs := []string{}

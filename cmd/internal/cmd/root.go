@@ -14,17 +14,15 @@ const (
 func Execute() error {
 	rootCmd := &cobra.Command{
 		Use:  "baseline-compiler",
-		Long: `Baseline Compiler reads the Basline YAML and outputs it as a markdown document.`,
+		Long: `Baseline Compiler reads the baseline YAML and renders it to all output formats.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
 	}
 
-	// Add the subcommands
+	addRelease(rootCmd)
 	addCompile(rootCmd)
 	addValidate(rootCmd)
-	addOscal(rootCmd)
-	addGemara(rootCmd)
 
 	return rootCmd.Execute()
 }

@@ -11,6 +11,45 @@ The baseline is published to https://baseline.openssf.org/ (via GitHub Pages) vi
 Jekyll (a static site generator) using scripts from `./cmd` and formatting from
 `./docs`, using GitHub Actions.
 
+The `baseline-compiler` tool in `cmd/` has three commands:
+
+* **compile**: Load, validate, and render the baseline to all output formats
+* **validate**: Validate the baseline YAML data files
+* **release**: Generate all release artifacts and update site documentation
+
+All commands take `--baseline` / `-b` to specify the baseline data directory (defaults to `../baseline` when run from `cmd/`). Use `make` targets from the repo root:
+
+```bash
+make compile                     # render all output formats (dev/preview)
+make validate                    # validate the baseline YAML
+make release VERSION=2026-04-04  # generate a new release (see below)
+```
+
+### compile
+
+Loads and validates the baseline, then writes all outputs to conventional paths relative to the repo root:
+
+- `docs/versions/devel.md` — markdown for the dev site
+- `docs/versions/devel-checklist.md` — printable checklist
+- `build/baseline.gemara.yaml` — Gemara YAML (validated by CI against the CUE schema)
+- `build/baseline.oscal.json` — OSCAL JSON (validated by CI against the NIST schema)
+
+### validate
+
+Loads and validates the baseline YAML data files, printing a summary on success.
+
+### release
+
+To publish a new version of the baseline, run from the repo root:
+
+```bash
+make release VERSION=<YYYY-MM-DD>
+```
+
+This generates `docs/versions/<VERSION>.md` and `docs/versions/<VERSION>-checklist.md`,
+demotes the previous current version, and updates `docs/_config.yml` and `docs/index.md`.
+After running, review the diff, update `docs/release_notes.md`, then open a PR.
+
 ## PR guidelines
 
 All changes to the repository should be made via PR

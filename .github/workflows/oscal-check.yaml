@@ -46,18 +46,18 @@ jobs:
       - run: |
           go build -C .build/go-oscal/ -o ${PWD}/go-oscal
           go build -C cmd/  -o ../baseline-compiler
-          ./baseline-compiler oscal -b baseline > oscal-sample.json
-          ./go-oscal validate --input-file oscal-sample.json 
+          ./baseline-compiler compile --source-dir baseline
+          ./go-oscal validate --input-file build/baseline.oscal.json
 
       - name: Validate Catalog with oscal-club/metaschema CLI
         uses: oscal-club/oscal-cli-action@6a8b6368885714e46fa1d4a65a6ce665902e08b7 # v2.1.0
         with:
-          args: catalog validate oscal-sample.json 
+          args: catalog validate build/baseline.oscal.json 
 
       - name: Validate Catalog with oscal-club/NIST CLI
         uses: oscal-club/oscal-cli-action@6a8b6368885714e46fa1d4a65a6ce665902e08b7 # v2.1.0
         with:
           oscalCliPackageUrl: https://repo1.maven.org/maven2/gov/nist/secauto/oscal/tools/oscal-cli/cli-core/1.0.3/cli-core-1.0.3-oscal-cli.tar.bz2
-          args: catalog validate oscal-sample.json 
+          args: catalog validate build/baseline.oscal.json 
             
             

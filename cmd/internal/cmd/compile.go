@@ -4,146 +4,98 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/ossf/security-baseline/pkg/baseline"
 )
 
-type compileOptions struct {
-	outPath               string
-	checklistOutPath      string
-	baselinePath          string
-	checklistTemplatePath string
-	templatePath          string
-	validate              bool
-}
-
-// Validate the options in context with arguments
-func (o *compileOptions) Validate() error {
-	errs := []error{}
-
-	if o.baselinePath == "" {
-		errs = append(errs, errors.New("baseline path not specified"))
-	}
-	return errors.Join(errs...)
-}
-
-func (o *compileOptions) AddFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(
-		&o.baselinePath, "baseline", "b", defaultBaselinePath, "path to directory containing the baseline YAML data",
-	)
-
-	cmd.PersistentFlags().StringVarP(
-		&o.checklistOutPath, "checklist-output", "", "",
-		"path to checklist output file (checklist only generated if specified)",
-	)
-
-	cmd.PersistentFlags().StringVarP(
-		&o.checklistTemplatePath, "checklist-template", "", "template-checklist.md",
-		"path to the checklist template file",
-	)
-
-	cmd.PersistentFlags().StringVarP(
-		&o.outPath, "output", "o", "", "path to output file",
-	)
-
-	cmd.PersistentFlags().StringVarP(
-		&o.templatePath, "template", "t", "template.md", "path to the markdown template file",
-	)
-
-	cmd.PersistentFlags().BoolVarP(
-		&o.validate, "validate", "v", true, "validate data inegrity before rendering",
-	)
-}
-
-// addCompile adds the compile subcommand to the parent command
 func addCompile(parentCmd *cobra.Command) {
-	opts := compileOptions{}
+	var baselinePath string
+
 	compileCmd := &cobra.Command{
-		Use:           "compile [file]",
-		Short:         "Compile a YAML file of security controls",
-		SilenceUsage:  false,
+		Use:   "compile",
+		Short: "Compile the baseline YAML to all output formats",
+		Long: `compile loads, validates, and renders the baseline to all output formats:
+
+  docs/versions/devel.md
+  docs/versions/devel-checklist.md
+  build/baseline.gemara.yaml
+  build/baseline.oscal.json`,
+		SilenceUsage:  true,
 		SilenceErrors: true,
-		PreRunE: func(_ *cobra.Command, args []string) error {
-			if opts.outPath != "" && len(args) > 1 && opts.outPath != args[1] {
-				return fmt.Errorf("output path specified twice")
+		RunE: func(_ *cobra.Command, _ []string) error {
+			absBaseline, err := filepath.Abs(baselinePath)
+			if err != nil {
+				return fmt.Errorf("resolving baseline path: %w", err)
 			}
+			repoRoot := filepath.Dir(absBaseline)
 
-			if len(args) > 1 {
-				opts.outPath = args[1]
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := opts.Validate(); err != nil {
-				return err
-			}
-
-			cmd.SilenceUsage = true
-
-			// Load the baseline data
 			loader := baseline.NewLoader()
-			loader.DataPath = opts.baselinePath
+			loader.DataPath = baselinePath
 
 			bline, err := loader.Load()
 			if err != nil {
 				return err
 			}
 
-			// Validate the data
 			validator := baseline.NewValidator()
-			err = validator.Check(bline)
-			if err != nil {
-				if opts.validate {
-					fmt.Fprint(os.Stderr, "\n❌ Error validating the baseline data:\n")
-					return err
-				}
-
-				// if the validation flag is off, we still validate but only warn
-				// the user about it
-				fmt.Fprint(os.Stderr, "\n⚠️ Error validating the baseline data (still rendering)")
+			if err := validator.Check(bline); err != nil {
+				fmt.Fprint(os.Stderr, "❌ Baseline validation failed:\n")
+				return err
 			}
 
-			// Generate the rendered version
 			gen := baseline.NewGenerator()
 
-			if opts.outPath == "" {
-				fmt.Fprintf(os.Stderr, "\n⚠️  No output path specified. Not rendering Baseline.")
-			} else {
-				if err := gen.ExportMarkdown(bline, opts.templatePath, opts.outPath); err != nil {
-					return fmt.Errorf("writing markdown render: %w", err)
-				}
-				fmt.Printf("\n✅ Baseline rendered to %s\n", opts.outPath)
+			develMD := filepath.Join(repoRoot, "docs", "versions", "devel.md")
+			if err := gen.ExportMarkdownDevel(bline, develMD); err != nil {
+				return fmt.Errorf("generating devel.md: %w", err)
+			}
+			fmt.Printf("✅ %s\n", develMD)
+
+			develChecklist := filepath.Join(repoRoot, "docs", "versions", "devel-checklist.md")
+			if err := gen.ExportChecklistDevel(bline, develChecklist); err != nil {
+				return fmt.Errorf("generating devel-checklist.md: %w", err)
+			}
+			fmt.Printf("✅ %s\n", develChecklist)
+
+			buildDir := filepath.Join(repoRoot, "build")
+			if err := os.MkdirAll(buildDir, 0o750); err != nil {
+				return fmt.Errorf("creating build dir: %w", err)
 			}
 
-			fmt.Printf("\nℹ️  Counts\n")
-			groupCounts := map[string]int{}
-			for _, c := range bline.Catalog.Controls {
-				groupCounts[c.Group]++
+			gemaraOut := filepath.Join(buildDir, "baseline.gemara.yaml")
+			gf, err := os.Create(gemaraOut)
+			if err != nil {
+				return fmt.Errorf("creating %s: %w", gemaraOut, err)
 			}
-			for _, g := range bline.Catalog.Groups {
-				fmt.Printf(" %s: %d controls\n", g.Title, groupCounts[g.Id])
+			defer gf.Close() //nolint:errcheck
+			if err := gen.ExportGemara(bline, gf); err != nil {
+				return fmt.Errorf("generating gemara YAML: %w", err)
 			}
-			fmt.Printf("\n+ %d mapped frameworks\n", len(bline.Catalog.Metadata.MappingReferences))
-			fmt.Printf("\n+ %d lexicon entries\n", len(bline.Lexicon))
+			fmt.Printf("✅ %s\n", gemaraOut)
 
-			// Print a checklist if they asked for it
-			if opts.checklistOutPath != "" {
-				if err := gen.ExportMarkdown(bline, opts.checklistTemplatePath, opts.checklistOutPath); err != nil {
-					return fmt.Errorf("checklist creation: %w", err)
-				}
-
-				fmt.Printf("\n✅ Checklist rendered to %s",
-					opts.checklistOutPath)
+			oscalOut := filepath.Join(buildDir, "baseline.oscal.json")
+			of, err := os.Create(oscalOut)
+			if err != nil {
+				return fmt.Errorf("creating %s: %w", oscalOut, err)
 			}
+			defer of.Close() //nolint:errcheck
+			if err := gen.ExportOSCAL(bline, of); err != nil {
+				return fmt.Errorf("generating OSCAL JSON: %w", err)
+			}
+			fmt.Printf("✅ %s\n", oscalOut)
 
 			return nil
 		},
 	}
-	opts.AddFlags(compileCmd)
+
+	compileCmd.Flags().StringVarP(
+		&baselinePath, "source-dir", "b", defaultBaselinePath,
+		"path to directory containing the baseline YAML data",
+	)
 	parentCmd.AddCommand(compileCmd)
 }

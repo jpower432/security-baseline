@@ -17,7 +17,6 @@ type validateOptions struct {
 	baselinePath string
 }
 
-// Validate the options in context with arguments
 func (o *validateOptions) Validate() error {
 	errs := []error{}
 
@@ -29,11 +28,10 @@ func (o *validateOptions) Validate() error {
 
 func (o *validateOptions) AddFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(
-		&o.baselinePath, "baseline", "b", defaultBaselinePath, "path to directory containing the baseline YAML definitions",
+		&o.baselinePath, "source-dir", "b", defaultBaselinePath, "path to directory containing the baseline YAML definitions",
 	)
 }
 
-// addValidate adds the compile subcommand to the parent command
 func addValidate(parentCmd *cobra.Command) {
 	opts := validateOptions{}
 	validateCmd := &cobra.Command{
@@ -58,7 +56,6 @@ func addValidate(parentCmd *cobra.Command) {
 
 			cmd.SilenceUsage = true
 
-			// Parse the data files
 			loader := baseline.NewLoader()
 			loader.DataPath = opts.baselinePath
 
@@ -67,7 +64,6 @@ func addValidate(parentCmd *cobra.Command) {
 				return err
 			}
 
-			// Generate the rendered version
 			validator := baseline.NewValidator()
 
 			if err = validator.Check(bline); err != nil {

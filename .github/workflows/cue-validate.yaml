@@ -20,6 +20,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Checkout go-gemara (go.mod replace ../../go-gemara from cmd/)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: gemaraproj/go-gemara
+          path: ../go-gemara
+          persist-credentials: false
+
       - name: Setup Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
@@ -34,10 +41,9 @@ jobs:
 
       - name: Build and generate Gemara output
         run: |
-          mkdir -p build
           cd cmd && go build -o ../build/baseline-compiler .
           cd ..
-          ./build/baseline-compiler gemara -b baseline -o build/baseline.gemara.yaml
+          ./build/baseline-compiler compile --source-dir baseline
 
       - name: Validate catalog against CUE schema
         run: cd schema && cue vet -d '#OSPSBaseline' . ../build/baseline.gemara.yaml
